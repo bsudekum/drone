@@ -5,7 +5,7 @@ var dataProgObj;
 var dataRot = 0;
  
 var buttonDown = false;
-var zoomed = -.2;
+var zoomed = -.1;
 var rot = [0, 2];
 var curCoords = [0, 0];
  
@@ -68,7 +68,7 @@ function render() {
   ps.translate(0, 0, zoomed);  
   ps.rotateY(rot[0]);
   ps.rotateX(rot[1]);
-  ps.pointSize(8);
+  ps.pointSize(2);
   ps.pushMatrix();
    
   ps.uniformi('uOutline', false);
@@ -79,9 +79,9 @@ function render() {
   ps.uniformf('lights0.position', [0,0,40]);
   ps.uniformf('lights0.diffuse', [1,1,1]);
    
-  ps.pointSize(.2);
+  ps.pointSize(.25);
   ps.translate(0, 0, 0);
-  ps.scale(0.01);
+  ps.scale(0.03);
   c = data.getCenter();
   ps.translate(-c[0], -c[1], -c[2]);
   ps.render(data);
