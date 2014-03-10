@@ -29,7 +29,7 @@ function updateStatus(cloud, str){
   switch(cloud.getStatus()){
     case 1: status.innerHTML = 'STARTED';break;
     case 2: status.innerHTML = 'STREAMING';break;
-    case 3: status.innerHTML = 'COMPLETE';break;
+    case 3: document.getElementById('info').style.display = 'none';
     default:break;
   }
 }
