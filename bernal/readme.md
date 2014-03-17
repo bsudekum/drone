@@ -1,6 +1,7 @@
-### Flight Information
+### Flight Information - Bernal Heights
 
-* Video: https://vimeo.com/89207166
-* 3d Point Cloud: [visuallybs.com/drone/bernal/pointcloud](http://visuallybs.com/drone/bernal/pointcloud)
-* DJI Phantom 2
-* GoPro Black
+![](https://i.cloudup.com/7rlUMZHJVz.gif)
+> Fact: Butterflies love drones
+
+* [Video](https://vimeo.com/89207166)
+* [3d Point Cloud](http://visuallybs.com/drone/bernal/pointcloud)
