@@ -1,0 +1,33 @@
+<!doctype html>
+<html>
+  <head>    
+    <meta charset='UTF-8'>
+    <script type='text/javascript' src='js/jquery-1.4.2.min.js'></script>
+    <link rel='stylesheet' type='text/css' href='css/style.css' />
+    <script src='js/xbps.js'></script>
+    <script src='js/site.js'></script>
+  </head>
+  <body>
+  
+    <canvas id='canvas'></canvas>
+    <h3>Crissy Field - San Francisco, CA</h3>
+    <div id='info'>
+      <span>Points: </span>[<span id='dataStatus'></span>] - <span id='dataNumPoints'>0</span> 
+      <div id='progressbar1'></div>
+      <div id='fps'></div>
+    </div>
+
+    <a href='https://github.com/rsudekum/drone' id='about'>About</a>
+  
+  </body>
+
+  <script>
+    $('.attribution').click(function(){
+      $('.modal').fadeIn();
+      $('canvas, img').click(function(){
+        $('.modal').fadeOut();
+      });
+    });
+  </script>
+
+</html>
