@@ -6,7 +6,7 @@ var dataRot = 0;
  
 var buttonDown = false;
 var zoomed = -.4;
-var rot = [0, 10];
+var rot = [0, -10];
 var curCoords = [0, 0];
  
 function zoom(amt){
@@ -79,7 +79,7 @@ function render() {
   ps.uniformf('lights0.position', [0,0,40]);
   ps.uniformf('lights0.diffuse', [1,1,1]);
    
-  ps.pointSize(.2);
+  ps.pointSize(.4);
   ps.translate(0, 0, 0);
   ps.scale(0.03);
   c = data.getCenter();
