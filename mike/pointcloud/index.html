@@ -1,33 +1,349 @@
-<!doctype html>
 <html>
-  <head>    
-    <meta charset='UTF-8'>
-    <script type='text/javascript' src='js/jquery-1.4.2.min.js'></script>
-    <link rel='stylesheet' type='text/css' href='css/style.css' />
-    <script src='js/xbps.js'></script>
-    <script src='js/site.js'></script>
-  </head>
-  <body>
-  
-    <canvas id='canvas'></canvas>
-    <h3>The Madavi Ranch</h3>
-    <div id='info'>
-      <span>Points: </span>[<span id='dataStatus'></span>] - <span id='dataNumPoints'>0</span> 
-      <div id='progressbar1'></div>
-      <div id='fps'></div>
+
+<head>
+
+    <link rel="stylesheet" type="text/css" href="potree.css" />
+    <script type="text/javascript" src="../src/Potree.js"></script>
+    <script type="text/javascript">
+    Potree.importScripts("..");
+    </script>
+
+    <script type="text/javascript">
+    function DemoKeyListener(material) {
+        this.material = material;
+    }
+
+    DemoKeyListener.prototype.invokeKeyPress = function(event) {
+        if (event.keyCode == KeyCodes.NUMBER_1) {
+            this.material.renderMode = PointCloudRenderMode.WEIGHTED_CIRCLE;
+        } else if (event.keyCode == KeyCodes.NUMBER_2) {
+            this.material.renderMode = PointCloudRenderMode.FILTERED_SPLAT;
+        }
+    }
+    DemoKeyListener.prototype.invokeKeyDown = function() {}
+    DemoKeyListener.prototype.invokeKeyUp = function() {}
+
+    function init() {
+
+        // init potree
+        var canvas = document.getElementById("canvas");
+        Potree.shaderDir = "../shader";
+        var success = Potree.init(canvas);
+        if (!success) {
+            return;
+        }
+
+        // load point cloud
+        var scene = Potree.currentScene;
+        var cloudURL = "../cloud/cloud.js";
+        var pcoNode = POCLoader.load(cloudURL);
+        scene.rootNode.addChild(pcoNode);
+
+        // mirror point cloud along a-axis
+        pcoNode.transform = [1, 0, 0, 0,
+            0, -1, 0, 0,
+            0, 0, 1, 0,
+            0, 0, 0, 1
+        ];
+
+
+        // transform camera
+        var pivot = V3.$(10, 10, 0);
+        var cam = scene.activeCamera;
+        cam.translate(pivot.x, pivot.y, pivot.z);
+        cam.translate(-20, -10, 40);
+        cam.rotateAroundPivot(0, 0, pivot);
+
+        // OrbitCamHandler rotates the camera around a pivot point
+        // Potree.camHandler = new OrbitCamHandler(cam);
+        Potree.camHandler.pivot = pivot;
+        Potree.camHandler = new Pix4dCamHandler(scene.activeCamera);
+
+        Potree.camHandler.autoRotateOn = false;
+
+        // Potree.updateHandlers.push(update);
+        // Potree.drawHandlers.push(draw);
+
+        // set point size
+        var material = MaterialManager.getMaterial("pointCloud");
+        material.pointSize = 1.5;
+
+        // set Level of Detail
+        Potree.Settings.LODMultiplicator = 20.0;
+
+        KeyListener.addListener(new DemoKeyListener(material));
+        canvas.focus();
+    }
+
+
+    /**
+     * Mimics navigation of Pix4D Mapper
+     * - rotation around selected point using middle mouse button
+     * - pan selected point using left mouse button
+     * - limit minimum and maximum yaw
+     *
+     */
+
+    function Pix4dCamHandler(camera) {
+        this.camera = camera;
+
+        // speed multiplier for actions
+        this.zoomSpeed = 5.0;
+        this.translateSpeed = 3.0;
+
+        this.pivot = V3.$(0, 0, 0);
+        // this.minYaw = 0.15;
+        // this.maxYaw = 1.4;
+
+        // the cam transformation when navigation has started by pressing left or middle mouse button 
+        this.transformAtNavigationStart = null;
+
+        this.autoRotateToggle = 0;
+        this.autoRotateOn = false;
+
+        this.snRotationOrigin = new Sphere("rotationOrigin", null);
+        var sphereMaterial = new FlatMaterial("rotationSphereMaterial", [142 / 255, 178 / 255, 142 / 255, 1]);
+        this.snRotationOrigin.mesh.setMaterial(sphereMaterial);
+    }
+
+    Pix4dCamHandler.prototype = new CamHandler();
+
+    Object.defineProperty(Pix4dCamHandler.prototype, "pivot", {
+        get: function() {
+            return this._pivot;
+        },
+        set: function(value) {
+            //      console.log("setting pivot: " + value);
+            this._pivot = value;
+        }
+    });
+
+    Pix4dCamHandler.prototype.addTime = function(time) {
+        this.autoRotateToggle += time;
+        if (this.autoRotateOn) {
+            var pivot = this.pivot;
+            var transToOr = M4x4.makeTranslate3(-pivot.x, -pivot.y, -pivot.z);
+            var rotY = M4x4.makeRotate(-0.3 * time, [0, 1, 0]);
+            var transBack = M4x4.makeTranslate3(pivot.x, pivot.y, pivot.z);
+            var t = M4x4.mul(transToOr, this.camera.transform);
+            t = M4x4.mul(rotY, t);
+            t = M4x4.mul(transBack, t);
+            this.camera.transform = t;
+        }
+    };
+
+
+    Pix4dCamHandler.prototype.fetchingPosition = false;
+    Pix4dCamHandler.prototype.invokeMouseDown = function(event) {
+        if (event.target != Potree.canvas) {
+            return;
+        }
+
+        //  var relCoords = relMouseCoords(event, Potree.canvas);
+        var relCoords = {
+            x: event.layerX,
+            y: event.layerY
+        };
+
+        //  var isInCanvas = (0 <= relCoords.x && relCoords.x <= Potree.canvas.width);
+        //  isInCanvas &= (0 <= relCoords.y && relCoords.y <= Potree.canvas.height);
+        //  if(!isInCanvas) {
+        //      return;
+        //  }
+        if (this.mouseIsInCanvas(event)) {
+            event.preventDefault();
+        } else {
+            return;
+        }
+
+        this.transformAtNavigationStart = this.camera.transform;
+
+        // asynchronously retrieve the world position of the point closest to the click location
+        var snRotationOrigin = this.snRotationOrigin;
+        var camHandler = this;
+        var callback = function(worldPos) {
+            Potree.currentScene.rootNode.addChild(snRotationOrigin);
+            snRotationOrigin.transform = M4x4.I;
+            //      snRotationOrigin.translate(worldPos.x, worldPos.y, worldPos.z);
+            snRotationOrigin._transform = M4x4.translate3(worldPos.x, worldPos.y, worldPos.z, snRotationOrigin._transform);
+            camHandler.pivot = worldPos;
+            camHandler.fetchingPosition = false;
+        };
+        var worldPosQueueElement = {
+            "x": relCoords.x,
+            "y": Potree.canvas.height - relCoords.y,
+            "width": 32,
+            "height": 32,
+            "callback": callback
+        }
+        this.fetchingPosition = true;
+        renderer.worldPosAt(worldPosQueueElement);
+
+        return this.mouseIsInCanvas(event);
+    }
+
+    Pix4dCamHandler.prototype.invokeMouseUp = function(event) {
+        if (MouseListener.pressedKeys.length == 0) {
+            this.snRotationOrigin.setParent(null);
+        }
+
+        return this.mouseIsInCanvas(event);
+    }
+
+    Pix4dCamHandler.prototype.invokeKeyPress = function(event) {
+
+    };
+
+    Pix4dCamHandler.prototype.invokeKeyDown = function(event) {
+
+        if (event.which == KeyCodes.M) {
+            console.log("pivot: " + this.pivot);
+            console.log("transform: " + this.camera.transform);
+        }
+    }
+
+    /**
+     * drag with left mouse button: translation
+     * drag with middle mouse button: rotation
+     */
+    Pix4dCamHandler.prototype.invokeMouseDrag = function(event, pressedKeys, diffX, diffY) {
+        if (event.target != Potree.canvas) {
+            return;
+        }
+        if (this.fetchingPosition) {
+            return;
+        }
+
+        var transform = this.camera.transform;
+        var pivot = this.pivot;
+
+        if (this.mouseIsInCanvas(event)) {
+            event.preventDefault();
+        } else {
+            return;
+        }
+
+        // rotation
+        if (pressedKeys.length == 1 && (pressedKeys.contains(Mouse.middle) || pressedKeys.contains(Mouse.right))) {
+            var transToOr = M4x4.makeTranslate3(-pivot.x, -pivot.y, -pivot.z);
+            var rotY = M4x4.makeRotate(-0.2 * timeSinceLastFrame * diffX, [0, 1, 0]);
+            var rotX = M4x4.makeRotate(-0.2 * timeSinceLastFrame * diffY, this.camera.getSideVector());
+            var transBack = M4x4.makeTranslate3(pivot.x, pivot.y, pivot.z);
+            var t = M4x4.mul(transToOr, this.camera.transform);
+            t = M4x4.mul(rotX, t);
+            t = M4x4.mul(rotY, t);
+            t = M4x4.mul(transBack, t);
+            this.camera.transform = t;
+
+            // limit yaw
+            var dir = this.camera.getGlobalDirection();
+            var xzDir = V3.normalize(V3.$(dir.x, 0, dir.z));
+            var angle = Math.acos(V3.dot(dir, xzDir));
+            if (dir.y > 0 && angle > this.minYaw) {
+                var aDiff = angle - this.minYaw;
+
+                var transToOr = M4x4.makeTranslate3(-pivot.x, -pivot.y, -pivot.z);
+                var rotX = M4x4.makeRotate(-aDiff, this.camera.getSideVector());
+                var transBack = M4x4.makeTranslate3(pivot.x, pivot.y, pivot.z);
+                var t = M4x4.mul(transToOr, this.camera.transform);
+                t = M4x4.mul(rotX, t);
+                t = M4x4.mul(transBack, t);
+                this.camera.transform = t;
+            } else if (dir.y < 0 && angle > this.maxYaw) {
+                var aDiff = angle - this.maxYaw;
+
+                var transToOr = M4x4.makeTranslate3(-pivot.x, -pivot.y, -pivot.z);
+                var rotX = M4x4.makeRotate(aDiff, this.camera.getSideVector());
+                var transBack = M4x4.makeTranslate3(pivot.x, pivot.y, pivot.z);
+                var t = M4x4.mul(transToOr, this.camera.transform);
+                t = M4x4.mul(rotX, t);
+                t = M4x4.mul(transBack, t);
+                this.camera.transform = t;
+            }
+        }
+
+        // translation
+        if (pressedKeys.length == 1 && pressedKeys.contains(Mouse.left)) {
+            //      var relCoords = relMouseCoords(event, Potree.canvas);
+            var relCoords = {
+                x: event.layerX,
+                y: event.layerY
+            };
+            var nx = relCoords.x / Potree.canvas.width;
+            var ny = (Potree.canvas.height - relCoords.y) / Potree.canvas.height;
+            var dir = this.camera.getDirection(nx, ny);
+            var plane = new Plane(-this.pivot.y, [0, 1, 0]);
+            var origin = V3.transform([0, 0, 0], this.transformAtNavigationStart);
+
+            var I = plane.intersection(origin, dir);
+            var translate = V3.sub(origin, I);
+            var newCamPos = V3.add(this.pivot, translate);
+            var diff = V3.sub(newCamPos, origin);
+            var t = this.transformAtNavigationStart;
+            t = M4x4.mul(M4x4.makeTranslate3(diff.x, diff.y, diff.z), t);
+            this.camera.transform = t;
+        }
+    };
+
+
+
+    /**
+     * zoom in/out towards the mouse location
+     */
+    Pix4dCamHandler.prototype.invokeMouseWheel = function(delta, event) {
+        var camera = this.camera;
+        var distToOrigin = V3.length(camera.globalPosition);
+        var relCoords = {
+            x: event.layerX,
+            y: event.layerY
+        };
+        //  var relCoords = relMouseCoords(event, Potree.canvas);
+        var nx = relCoords.x / Potree.canvas.width;
+        var ny = (Potree.canvas.height - relCoords.y) / Potree.canvas.height;
+
+        //  this.preventDefaultIfInCanvas(event);
+        if (this.mouseIsInCanvas(event)) {
+            event.preventDefault();
+        } else {
+            return;
+        }
+
+        var dir = this.camera.getDirection(nx, ny);
+        var w = 4 * Math.pow(distToOrigin / 200, 2);
+        var v = V3.scale(dir, delta * timeSinceLastFrame * w);
+        this.camera.transform = M4x4.mul(M4x4.makeTranslate3(v.x, v.y, v.z), this.camera.transform);
+
+
+    };
+
+    Pix4dCamHandler.prototype.invokeMouseMove = function(event, diffX, diffY) {
+
+    }
+
+    Pix4dCamHandler.prototype.mouseIsInCanvas = function(event) {
+        //  var relCoords = relMouseCoords(event, Potree.canvas);
+        var relCoords = {
+            x: event.layerX,
+            y: event.layerY
+        };
+        var nx = relCoords.x / Potree.canvas.width;
+        var ny = (Potree.canvas.height - relCoords.y) / Potree.canvas.height;
+
+        return (0 <= nx && nx <= 1) && (0 <= ny && ny <= 1);
+    }
+    </script>
+
+</head>
+
+<body onload="init()" class="claro" style="font-size: 62.5%;" oncontextmenu="return false;">
+
+    <div id="workarea" style="width: 100%; height: 100%">
+        <canvas id="canvas" width="800" height="600" tabIndex="1">
+            Your Browser does not support WebGL. Try the newest version of Firefox or Google Chrome.
+        </canvas>
     </div>
 
-    <a href='https://github.com/rsudekum/drone' id='about'>About</a>
-  
-  </body>
 
-  <script>
-    $('.attribution').click(function(){
-      $('.modal').fadeIn();
-      $('canvas, img').click(function(){
-        $('.modal').fadeOut();
-      });
-    });
-  </script>
+</body>
 
 </html>
