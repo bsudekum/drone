@@ -3,9 +3,9 @@
 <head>
 
     <link rel="stylesheet" type="text/css" href="potree.css" />
-    <script type="text/javascript" src="../src/Potree.js"></script>
+    <script type="text/javascript" src="src/potree.js"></script>
     <script type="text/javascript">
-    Potree.importScripts("..");
+    Potree.importScripts(".");
     </script>
 
     <script type="text/javascript">
@@ -27,7 +27,7 @@
 
         // init potree
         var canvas = document.getElementById("canvas");
-        Potree.shaderDir = "../shader";
+        Potree.shaderDir = "shader/";
         var success = Potree.init(canvas);
         if (!success) {
             return;
@@ -35,7 +35,7 @@
 
         // load point cloud
         var scene = Potree.currentScene;
-        var cloudURL = "../cloud/cloud.js";
+        var cloudURL = "cloud/cloud.js";
         var pcoNode = POCLoader.load(cloudURL);
         scene.rootNode.addChild(pcoNode);
 
@@ -88,8 +88,8 @@
         this.camera = camera;
 
         // speed multiplier for actions
-        this.zoomSpeed = 5.0;
-        this.translateSpeed = 3.0;
+        this.zoomSpeed = 1;
+        this.translateSpeed = 1.0;
 
         this.pivot = V3.$(0, 0, 0);
         // this.minYaw = 0.15;
