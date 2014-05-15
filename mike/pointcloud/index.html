@@ -3,7 +3,7 @@
 <head>
 
     <link rel="stylesheet" type="text/css" href="potree.css" />
-    <script type="text/javascript" src="src/potree.js"></script>
+    <script type="text/javascript" src="src/Potree.js"></script>
     <script type="text/javascript">
     Potree.importScripts(".");
     </script>
@@ -51,7 +51,7 @@
         var pivot = V3.$(10, 10, 0);
         var cam = scene.activeCamera;
         cam.translate(pivot.x, pivot.y, pivot.z);
-        cam.translate(-20, -10, 40);
+        cam.translate(-30, -20, 40);
         cam.rotateAroundPivot(0, 0, pivot);
 
         // OrbitCamHandler rotates the camera around a pivot point
